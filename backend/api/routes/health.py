@@ -24,7 +24,7 @@ async def check_db_connection():
 
 async def check_storage_connection():
     try:
-        await asyncio.to_thread(storage_service.s3_client.list_buckets())
+        await asyncio.to_thread(storage_service.s3_client.list_buckets)
         return True, "Storage OK"
     except Exception as e:
         logger.error(f"Health check Storage failed: {e}")
