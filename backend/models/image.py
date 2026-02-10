@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import String, Integer, TIMESTAMP, text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.session import Base
+from backend.db.session import Base
 
 class Image(Base):
     __tablename__ = "Image"

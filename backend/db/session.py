@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
-from app.core.config import settings
+from backend.core.config import settings
 from slowapi import Limiter
 from slowapi.util import get_ipaddr
 

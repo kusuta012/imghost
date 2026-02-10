@@ -3,9 +3,9 @@ from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.util import get_ipaddr
 from slowapi.errors import RateLimitExceeded
-from app.db.session import limiter, custom_key_func
-from app.api.routes import upload, image, delete, health
-from app.core.monitoring import PrometheusMiddleware
+from backend.db.session import limiter, custom_key_func
+from backend.api.routes import upload, image, delete, health
+from backend.core.monitoring import PrometheusMiddleware
 import logging, sys, json
 from datetime import datetime, timezone
 

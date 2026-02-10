@@ -4,7 +4,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException, status
 from typing import BinaryIO
-from app.core.config import settings
+from backend.core.config import settings
 
 class StorageService:
     def __init__(self):

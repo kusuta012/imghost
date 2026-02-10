@@ -3,9 +3,9 @@ import uuid
 import logging
 from PIL import Image as PilImage, ExifTags
 from typing import Tuple, BinaryIO
-from app.services.storage import storage_service
-from app.db.session import AsyncSessionLocal
-from app.models.image import Image
+from backend.services.storage import storage_service
+from backend.db.session import AsyncSessionLocal
+from backend.models.image import Image
 from sqlalchemy import select
 
 logger = logging.getLogger("imghost.background")
