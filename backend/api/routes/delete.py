@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 import bcrypt
 
-from backend.db.session import get_db
-from backend.models.image import Image
-from backend.services.storage import storage_service
-from backend.core.monitoring import DELETE_COUNT, ERROR_COUNT
+from db.session import get_db
+from models.image import Image
+from services.storage import storage_service
+from core.monitoring import DELETE_COUNT, ERROR_COUNT
 
 router = APIRouter(tags=["image-deletion"])
 logger = logging.getLogger("imghost")

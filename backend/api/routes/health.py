@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Response, status
 from prometheus_client import generate_latest
 
-from backend.services.storage import storage_service
-from backend.db.session import engine
+from services.storage import storage_service
+from db.session import engine
 from sqlalchemy import text
 
 router = APIRouter(tags=["health_metrics"])

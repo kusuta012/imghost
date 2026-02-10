@@ -8,13 +8,13 @@ from io import BytesIO
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi.util import get_ipaddr
-from backend.db.session import limiter
-from backend.core.config import settings
-from backend.db.session import get_db
-from backend.models.image import Image
-from backend.services.storage import storage_service
-from backend.services.processing import process_image_and_update_db
-from backend.core.monitoring import UPLOAD_COUNT, ERROR_COUNT 
+from db.session import limiter
+from core.config import settings
+from db.session import get_db
+from models.image import Image
+from services.storage import storage_service
+from services.processing import process_image_and_update_db
+from core.monitoring import UPLOAD_COUNT, ERROR_COUNT 
 
 router = APIRouter()
 logger = logging.getLogger("imghost")

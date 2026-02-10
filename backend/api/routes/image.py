@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from slowapi.util import get_ipaddr
 
-from backend.db.session import get_db, limiter
-from backend.models.image import Image
-from backend.services.storage import storage_service
+from db.session import get_db, limiter
+from models.image import Image
+from services.storage import storage_service
 
 router = APIRouter(tags=["image_retrieval"])
 logger = logging.getLogger("imghost")
