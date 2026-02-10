@@ -1,5 +1,6 @@
 import io
 import uuid
+import logging
 from PIL import Image as PilImage, ExifTags
 from typing import Tuple, BinaryIO
 from app.services.storage import storage_service
@@ -7,11 +8,11 @@ from app.db.session import AsyncSessionLocal
 from app.models.image import Image
 from sqlalchemy import select
 
-def log_background_task(level: str, message: str):
-    print(f"[{level}] [Background Task] {message}")
-    
+logger = logging.getLogger("imghost.background")
+
+
 def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
-    log_background_task("INFO", "Starting image processing")
+    logger.info("Starting image processing")
     
     output_format = "JPEG"
     mime_type = "image/jpeg"
@@ -42,7 +43,7 @@ def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
         return output_buffer.read(), mime_type
     
     except Exception as e:
-        log_background_task("ERROR", f"Image processing failed: {e}")
+        logger.error(f"Image processing failed: {e}")
         
         return file_bytes, mime_type
     
@@ -51,10 +52,10 @@ async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes
     
 
     if len(processed_bytes) == len(original_bytes):
-        log_background_task("INFO", f"Image {image_id} processing resulted in no change")
+        logger.info(f"Image {image_id} processing resulted in no material change.")
         return
     
-    log_background_task("INFO", f"image {image_id} processed. New size: {len(processed_bytes)} bytes.")
+    logger.info(f"Image {image_id} processed. New size: {len(processed_bytes)} bytes.")
     
     try:
         await storage_service.upload_file(
@@ -74,11 +75,11 @@ async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes
                 image.is_processed = True
                 
                 await session.commit()
-                log_background_task("INFO", f"Image {image_id} DB Updated sucessfully")
+                logger.info(f"Image {image_id} DB updated successfully.")
             else:
-                log_background_task("WARNING", f"Image {image_id} not found for update")
+                logger.warning(f"Image {image_id} not found for update (possible prior deletion).")
                 
     except Exception as e:
-        log_background_task("CRITICAL", f"Background update failed for {image_id} {e}")
+        logger.critical(f"Background update failed for {image_id}: {e}")
         
         
