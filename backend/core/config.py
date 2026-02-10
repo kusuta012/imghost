@@ -13,6 +13,6 @@ class Settings(BaseSettings):
     RATE_LIMIT_STORAGE_URL: str = "memory://"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 60
     
-    model_config = SettingsConfigDict(env_file="backend/.env")
+    model_config = SettingsConfigDict(env_file=".env")
     
 settings = Settings() # type: ignore

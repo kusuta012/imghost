@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime, timezone
 from fastapi import APIRouter, Response, status
 from prometheus_client import generate_latest
@@ -23,7 +24,7 @@ async def check_db_connection():
 
 async def check_storage_connection():
     try:
-        await storage_service.s3_client.list_buckets()
+        await asyncio.to_thread(storage_service.s3_client.list_buckets())
         return True, "Storage OK"
     except Exception as e:
         logger.error(f"Health check Storage failed: {e}")
