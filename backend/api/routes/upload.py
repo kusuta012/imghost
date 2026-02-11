@@ -1,16 +1,13 @@
 import uuid
 import magic
-import bcrypt
 import logging
-import secrets
-from typing import Annotated
+from typing import List, Annotated
 from io import BytesIO
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi.util import get_ipaddr
-from db.session import limiter
+from db.session import limiter, get_db
 from core.config import settings
-from db.session import get_db
 from models.image import Image
 from services.storage import storage_service
 from services.processing import process_image_and_update_db
@@ -22,97 +19,73 @@ logger = logging.getLogger("imghost")
 MAX_FILE_SIZE = 5 * 1024 * 1024
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
-
-async def validate_file(file: UploadFile) -> bytes:
+async def validate_and_read_file(file: UploadFile) -> tuple[bytes, str]:
+    """Reads file, validates size and MIME, returns bytes and mime_type."""
     file_bytes = await file.read()
+    
     if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File size exceeds the limit")
-    return file_bytes
-
-def get_mime_type(file_bytes: bytes) -> str:
-    try:
-        return magic.Magic(mime=True).from_buffer(file_bytes)
-    except Exception:
-        return "application/octet-stream"
+        raise HTTPException(
+            status_code=413, 
+            detail=f"File '{file.filename}' is too large (Max 5MB)"
+        )
+    
+    mime_type = magic.Magic(mime=True).from_buffer(file_bytes)
+    if mime_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=415, 
+            detail=f"File '{file.filename}' has invalid type: {mime_type}"
+        )
+        
+    return file_bytes, mime_type
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
 async def upload_image(
-    file: Annotated[UploadFile, File(description="Image file to upload")],
+    files: Annotated[List[UploadFile], File(description="images to upload")],
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    request
+    request: Request
 ):
     ip_addr = get_ipaddr(request)
-    
-    try:
-        file_bytes = await validate_file(file)
-    except HTTPException as e:
-        logger.warning(f"Upload rejected: Size limit exceeded.", extra={"status": e.status_code, "ip": ip_addr})
-        raise
-    
-    actual_mime_type = get_mime_type(file_bytes)
-    
-    if actual_mime_type not in ALLOWED_MIME_TYPES:
-        logger.warning(f"Upload rejcted: Unsupported file type {actual_mime_type}.", extra={"status": 415, "ip": ip_addr})
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type: {actual_mime_type}"
-        )
+    results = []
 
-    image_id = uuid.uuid4()
-    new_filename = str(image_id) 
-    clear_token = secrets.token_hex(32)
-    
-    salt = bcrypt.gensalt()
-    token_hash = bcrypt.hashpw(clear_token.encode('utf-8'), salt).decode('utf-8')
+    for file in files:
+        try:
+            file_bytes, mime_type = await validate_and_read_file(file)
+            
+            new_filename = str(uuid.uuid4())
+            
+            await storage_service.upload_file(BytesIO(file_bytes), new_filename, mime_type)
 
-    try:
-        file_buffer = BytesIO(file_bytes)
-        
-        object_url = await storage_service.upload_file(
-            file_obj=file_buffer,
-            filename=new_filename,
-            mime_type=actual_mime_type
-        )
+            new_image = Image(
+                filename=new_filename,
+                object_url=f"s3://{new_filename}", 
+                size_bytes=len(file_bytes),
+                mime_type=mime_type,
+                is_processed=False
+            )
+            db.add(new_image)
+            
+            await db.flush()
 
-        new_image = Image(
-            filename=new_filename,
-            object_url=object_url,
-            size_bytes=len(file_bytes),
-            mime_type=actual_mime_type,
-            delete_token_hash=token_hash,
-            is_processed=False
-        )
-        
-        db.add(new_image)
-        await db.commit()
-        await db.refresh(new_image)
+            background_tasks.add_task(
+                process_image_and_update_db, 
+                new_image.id, 
+                file_bytes, 
+                new_filename
+            )
+            
+            results.append({"url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}"})
+            UPLOAD_COUNT.inc()
+            logger.info(f"Upload success.", extra={"status": 201, "ip": ip_addr, "img_filename": new_filename})
 
-        background_tasks.add_task(
-            process_image_and_update_db, 
-            new_image.id, 
-            file_bytes, 
-            new_filename
-        )
-        
-        UPLOAD_COUNT.inc()
-        logger.info(f"Upload success.", extra={"status": 201, "ip": ip_addr, "filename": new_filename})
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            await db.rollback()
+            ERROR_COUNT.inc()
+            logger.error(f"Upload failed for {file.filename}: {e}", extra={"ip": ip_addr})
+            raise HTTPException(status_code=500, detail="Internal server error during upload")
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback() 
-        ERROR_COUNT.inc() 
-        logger.error(f"Upload failed: DB/System error - {e}", extra={"status": 500, "ip": ip_addr})
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred during processing"
-        )
-
-    public_url = f"{settings.PUBLIC_BASE_URL}/i/{new_filename}"
-
-    return {
-        "url": public_url,
-        "delete_token": clear_token
-    }
+    await db.commit()
+    return results

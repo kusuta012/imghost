@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
-from slowapi.util import get_ipaddr
 from slowapi.errors import RateLimitExceeded
 from db.session import limiter, custom_key_func
-from api.routes import upload, image, delete, health
+from api.routes import upload, health
 from core.monitoring import PrometheusMiddleware
 import logging, sys, json
 from datetime import datetime, timezone
@@ -18,7 +17,7 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "status": getattr(record, 'status', None),
             "ip": getattr(record, 'ip', None),
-            "filename": getattr(record, 'filename', None),
+            "img_filename": getattr(record, 'img_filename', None),
             }
         return json.dumps({k: v for k, v in log_record.items() if v is not None})
     
@@ -40,6 +39,9 @@ app = FastAPI(
     title="SpeedHawks's Image Host",
     description="Just a random backend",
     version="1.6.7",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(PrometheusMiddleware)
@@ -60,8 +62,6 @@ async def rate_limit_exceeded_handler(request, exc):
     return _rate_limit_exceeded_handler(request, exc)
 
 app.include_router(upload.router)
-app.include_router(image.router)
-app.include_router(delete.router)
 app.include_router(health.router)
 
 @app.get("/")
