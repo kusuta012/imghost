@@ -2,61 +2,86 @@ import io
 import uuid
 import logging
 from PIL import Image as PilImage, ExifTags
-from typing import Tuple, BinaryIO
+from typing import Tuple
 from services.storage import storage_service
 from db.session import AsyncSessionLocal
 from models.image import Image
 from sqlalchemy import select
 
 logger = logging.getLogger("imghost.background")
+MAX_DIMENSION = 2500
 
 
 def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
     logger.info("Starting image processing")
-    
-    output_format = "JPEG"
+
+    # output_format = "JPEG"
     mime_type = "image/jpeg"
-    
+
     try:
         img = PilImage.open(io.BytesIO(file_bytes))
-        
+        original_size = img.size
         data = list(img.getdata())
         img_no_exif = PilImage.new(img.mode, img.size)
         img_no_exif.putdata(data)
-        
-        img_format = img.format.lower() if img.format else ''
-        if 'webp' in img_format or img_no_exif.mode in ('RGB', 'RGBA'):
-            output_format = "WEBP"
-            mime_type = "image/webp"
+
+        width, height = img_no_exif.size
+        needs_resize = width > MAX_DIMENSION or height > MAX_DIMENSION
+
+        if needs_resize:
+            if width > height:
+                new_width = MAX_DIMENSION
+                new_height = int((MAX_DIMENSION / width) * height)
+            else:
+                new_height = MAX_DIMENSION
+                new_width = int((MAX_DIMENSION / height) * width)
+
+            img_no_exif = img_no_exif.resize((new_width, new_height), PilImage.Resampling.LANCZOS)
+            logger.info(f"Resized from {original_size} to {img_no_exif.size}")
             
         output_buffer = io.BytesIO()
         
-        if output_format == "WEBP":
-            img_no_exif.save(output_buffer, format='WEBP', optimize=True, quality=90)
+        if img_no_exif.mode in ('RGBA', 'LA', 'P'):
+            img_no_exif.save(output_buffer, format='WEBP', quality=85, method=6, lossless=False)
         else:
-            
-            if img_no_exif.mode in ('RGBA', 'P'):
-                img_no_exif = img_no_exif.convert('RGB')
-            img_no_exif.save(output_buffer, format='JPEG', optimize=True, quality=90)
-            
+            if img_no_exif.mode != 'RGB':
+                img_no_exif = img_no_exif.convert('RGB')   
+            img_no_exif.save(output_buffer, format='WEBP', quality=85, method=6)
+
         output_buffer.seek(0)
-        return output_buffer.read(), mime_type
+        processed_bytes = output_buffer.read()
+        
+        original_kb = len(file_bytes) / 1024
+        processed_kb = len(processed_bytes) / 1024
+        reduction = ((len(file_bytes) - len(processed_bytes)) / len(file_bytes)) * 100
+        
+        logger.info(f"Original size: {original_kb:.2f} KB, Processed size: {processed_kb:.2f} KB, Reduction: {reduction:.2f}%")
+        return processed_bytes, "image/webp"
     
     except Exception as e:
         logger.error(f"Image processing failed: {e}")
-        
         return file_bytes, mime_type
     
-async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes, original_filename: str):
-    processed_bytes, new_mime_type= strip_exif_and_process(original_bytes)
-    
 
-    if len(processed_bytes) == len(original_bytes):
-        logger.info(f"Image {image_id} processing resulted in no material change.")
+async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes, original_filename: str):
+    processed_bytes, new_mime_type = strip_exif_and_process(original_bytes)
+    
+    size_reduction = len(original_bytes) - len(processed_bytes)
+    reduction_pct = (size_reduction / len(original_bytes)) * 100
+    
+    if reduction_pct < 5:
+        logger.info(f"Image {image_id} process resulted in ({reduction_pct:.2f}%) change, skipping reupload")
+        async with AsyncSessionLocal() as session:
+            stmt = select(Image).filter(Image.id == image_id)
+            result = await session.execute(stmt)
+            image = result.scalars().first()
+            if image:
+                image.is_processed = True
+                await session.commit()
         return
-    
+
     logger.info(f"Image {image_id} processed. New size: {len(processed_bytes)} bytes.")
-    
+
     try:
         await storage_service.upload_file(
             file_obj=io.BytesIO(processed_bytes),
@@ -68,18 +93,16 @@ async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes
             stmt = select(Image).filter(Image.id == image_id)
             result = await session.execute(stmt)
             image = result.scalars().first()
-            
+    
             if image:
-                image.size_bytes = len(processed_bytes) # type: ignore[assignment]
+                image.size_bytes = len(processed_bytes)  # type: ignore[assignment]
                 image.mime_type = new_mime_type
                 image.is_processed = True
-                
+
                 await session.commit()
                 logger.info(f"Image {image_id} DB updated successfully.")
             else:
                 logger.warning(f"Image {image_id} not found for update (possible prior deletion).")
-                
+
     except Exception as e:
         logger.critical(f"Background update failed for {image_id}: {e}")
-        
-        

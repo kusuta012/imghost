@@ -16,7 +16,7 @@ class StorageService:
              aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name='ap-mumbai-1',
             config=Config(signature_version='s3v4')
-        )
+        )   
         self.bucket_name = settings.S3_BUCKET_NAME
         
     async def upload_file(
@@ -44,21 +44,6 @@ class StorageService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Could not upload file to storagee"
-            )
-            
-    async def generate_presigned_url(self, filename: str) -> str:
-        try:
-            url = await asyncio.to_thread(
-                self.s3_client.generate_presigned_url,
-                ClientMethod='get_object',
-                Params={'Bucket': self.bucket_name, 'Key': filename},
-                ExpiresIn=settings.PRESIGNED_URL_EXPIRY_SECONDS
-            )
-            return url
-        except (BotoCoreError, ClientError) as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not generate signed url"
             )
             
     async def delete_file(self, filename: str) -> None:

@@ -9,6 +9,11 @@ def custom_key_func(request) -> str:
     cf_ip = request.headers.get("cf-connecting-ip")
     if cf_ip:
         return cf_ip
+    
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    
     return get_ipaddr(request)
 
 engine = create_async_engine(settings.DATABASE_URL, echo=False)

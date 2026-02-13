@@ -6,7 +6,7 @@ from io import BytesIO
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi.util import get_ipaddr
-from db.session import limiter, get_db
+from db.session import limiter, get_db, custom_key_func
 from core.config import settings
 from models.image import Image
 from services.storage import storage_service
@@ -17,26 +17,55 @@ router = APIRouter()
 logger = logging.getLogger("imghost")
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
-ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"]
+MAX_TOTAL_SIZE = 15 * 1024 * 1024
+MAX_FILES = 10
+ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
 
-async def validate_and_read_file(file: UploadFile) -> tuple[bytes, str]:
-    """Reads file, validates size and MIME, returns bytes and mime_type."""
-    file_bytes = await file.read()
+
+async def validate_file(file: UploadFile) -> tuple[bytes, str]:
+    if hasattr(file, 'size') and file.size is not None:
+        if file.size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413, 
+                detail=f"File '{file.filename}' is too large (Max 5MB per file)"
+            )
+            
+    head = await file.read(2048)
+    mime_type = magic.Magic(mime=True).from_buffer(head)
     
-    if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413, 
-            detail=f"File '{file.filename}' is too large (Max 5MB)"
-        )
-    
-    mime_type = magic.Magic(mime=True).from_buffer(file_bytes)
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
-            status_code=415, 
-            detail=f"File '{file.filename}' has invalid type: {mime_type}"
+            status_code=415,
+            detail=f"File '{file.filename}' has invalid type: {mime_type}. Allowed: JPEG, PNG, WEBP, HEIC"
+        )  
+
+    await file.seek(0)
+    
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File '{file.filename}' is too large (Max 5MB per file)"
         )
-        
     return file_bytes, mime_type
+
+# async def validate_and_read_file(file: UploadFile) -> tuple[bytes, str]:
+#     file_bytes = await file.read()
+    
+#     if len(file_bytes) > MAX_FILE_SIZE:
+#         raise HTTPException(
+#             status_code=413, 
+#             detail=f"File '{file.filename}' is too large (Max 5MB)"
+#         )
+    
+#     mime_type = magic.Magic(mime=True).from_buffer(file_bytes)
+#     if mime_type not in ALLOWED_MIME_TYPES:
+#         raise HTTPException(
+#             status_code=415, 
+#             detail=f"File '{file.filename}' has invalid type: {mime_type}"
+#         )
+        
+#     return file_bytes, mime_type
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
@@ -46,12 +75,25 @@ async def upload_image(
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request
 ):
-    ip_addr = get_ipaddr(request)
+    ip_addr = custom_key_func(request)
+    
+    if len(files) > MAX_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files! Max {MAX_FILES} allowed per upload"
+        )
+        
+    total_size = sum(f.size for f in files if hasattr(f, 'size') and f.size)
+    if total_size > MAX_TOTAL_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Total upload size ({total_size / (1024 * 1024):.2f} MB) exceeds the limit of 15MB"
+        )
     results = []
 
     for file in files:
         try:
-            file_bytes, mime_type = await validate_and_read_file(file)
+            file_bytes, mime_type = await validate_file(file)
             
             new_filename = str(uuid.uuid4())
             
@@ -62,7 +104,8 @@ async def upload_image(
                 object_url=f"s3://{new_filename}", 
                 size_bytes=len(file_bytes),
                 mime_type=mime_type,
-                is_processed=False
+                is_processed=False,
+                ip_address=ip_addr
             )
             db.add(new_image)
             
@@ -88,4 +131,7 @@ async def upload_image(
             raise HTTPException(status_code=500, detail="Internal server error during upload")
 
     await db.commit()
+    
+    total_uploaded_kb = sum(r.get('size', 0) for r in results) if results else 0
+    logger.info(f"batch upload complete: {len(results)} files, {total_uploaded_kb/1024:.1f}MB toal", extra={"ip": ip_addr})
     return results
