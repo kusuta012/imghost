@@ -1,7 +1,8 @@
 import io
 import uuid
 import logging
-from PIL import Image as PilImage, ExifTags
+from PIL import Image as PilImage
+from pillow_heif import register_heif_opener
 from typing import Tuple
 from services.storage import storage_service
 from db.session import AsyncSessionLocal
@@ -11,12 +12,11 @@ from sqlalchemy import select
 logger = logging.getLogger("imghost.background")
 MAX_DIMENSION = 2500
 
+register_heif_opener() 
 
 def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
     logger.info("Starting image processing")
 
-    # output_format = "JPEG"
-    mime_type = "image/jpeg"
 
     try:
         img = PilImage.open(io.BytesIO(file_bytes))
@@ -60,7 +60,7 @@ def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
     
     except Exception as e:
         logger.error(f"Image processing failed: {e}")
-        return file_bytes, mime_type
+        return file_bytes, "image/jpeg"
     
 
 async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes, original_filename: str):
