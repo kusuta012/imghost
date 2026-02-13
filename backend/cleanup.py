@@ -22,6 +22,9 @@ async def soft_delete_expired_imges():
             logger.info("No expired images found for soft deletion")
             return
         
+        deleted_count = 0
+        failed_count = 0
+        
         for img in expired:
             try:
         
