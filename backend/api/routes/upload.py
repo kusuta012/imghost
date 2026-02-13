@@ -5,6 +5,8 @@ from typing import List, Annotated
 from io import BytesIO
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from datetime import datetime, timezone, timedelta
 from slowapi.util import get_ipaddr
 from db.session import limiter, get_db, custom_key_func
 from core.config import settings
@@ -19,6 +21,7 @@ logger = logging.getLogger("imghost")
 MAX_FILE_SIZE = 5 * 1024 * 1024
 MAX_TOTAL_SIZE = 15 * 1024 * 1024
 MAX_FILES = 10
+MAX_IMAGES_PER_HOUR = 50  
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
 
 
@@ -89,6 +92,19 @@ async def upload_image(
             status_code=413,
             detail=f"Total upload size ({total_size / (1024 * 1024):.2f} MB) exceeds the limit of 15MB"
         )
+    
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    stmt = select(func.count(Image.id)).where(Image.ip_address == ip_addr, Image.uploaded_at >= one_hour_ago)
+    result = await db.execute(stmt)
+    recent_uploads = result.scalar() or 0 
+    
+    if recent_uploads + len(files) > MAX_IMAGES_PER_HOUR:
+        remaining = MAX_IMAGES_PER_HOUR - recent_uploads
+        raise HTTPException(
+            status_code=429,
+            detail=f"Upload limit exceeded. You've uploaded {recent_uploads}/{MAX_IMAGES_PER_HOUR} images in the last hour."
+        )    
+        
     results = []
 
     for file in files:
