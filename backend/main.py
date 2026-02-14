@@ -1,11 +1,12 @@
 from fastapi import FastAPI
+import sentry_sdk
 from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from db.session import limiter, custom_key_func
 from api.routes import upload, health
 from core.monitoring import PrometheusMiddleware
-import logging, sys, json
+import logging, sys, json, os
 from datetime import datetime, timezone
 
 class JsonFormatter(logging.Formatter):
@@ -34,6 +35,16 @@ def setup_logging():
     uvicorn_logger.setLevel(logging.WARNING)
     
 setup_logging()
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    send_default_pii=True,
+    enable_logs=True,
+    traces_sample_rate=0.7,
+    profile_session_sample_rate=1.0,
+    profile_lifecycle="trace",
+)
+
 
 app = FastAPI(
     title="SpeedHawks's Image Host",
