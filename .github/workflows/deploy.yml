@@ -29,7 +29,7 @@ jobs:
             git pull origin main
 
             echo "Updating Backend"
-            cd backend
+            cd ~/imghost
             source venv/bin/activate
             pip install -r requirements.txt
             sudo systemctl restart imghost-backend
