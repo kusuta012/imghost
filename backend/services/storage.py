@@ -15,7 +15,7 @@ class StorageService:
             aws_access_key_id=settings.S3_ACCESS_KEY_ID,
              aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name='ap-mumbai-1',
-            config=Config(signature_version='s3v4')
+            config=Config(signature_version='s3v4', s3={'payload_signing_enabled': False})
         )   
         self.bucket_name = settings.S3_BUCKET_NAME
         
@@ -28,12 +28,17 @@ class StorageService:
         
         try:
             
+            file_obj.seek(0,2)
+            file_size = file_obj.tell()
+            file_obj.seek(0)
+            
             await asyncio.to_thread(
-                self.s3_client.upload_fileobj,
-                file_obj,
-                self.bucket_name,
-                filename,
-                ExtraArgs={'ContentType': mime_type}
+                self.s3_client.put_object,
+                Bucket=self.bucket_name,
+                Key=filename,
+                Body=file_obj,
+                ContentType=mime_type,
+                ContentLength=file_size
             )
             
             object_url = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}/{filename}"
