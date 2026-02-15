@@ -13,9 +13,9 @@ class StorageService:
             's3',
             endpoint_url=settings.S3_ENDPOINT_URL,
             aws_access_key_id=settings.S3_ACCESS_KEY_ID,
-             aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name='ap-mumbai-1',
-            config=Config(signature_version='s3v4', s3={'payload_signing_enabled': False})
+            config=Config(signature_version='s3v4')
         )   
         self.bucket_name = settings.S3_BUCKET_NAME
         
@@ -45,7 +45,7 @@ class StorageService:
             return object_url
         
         except (BotoCoreError, ClientError) as e:
-            
+            print(f"S3 upload error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Could not upload file to storagee"
@@ -59,9 +59,10 @@ class StorageService:
                 Key=filename
             )
         except (BotoCoreError, ClientError) as e:
+            print(f"S3 delete error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not detail file from storage"
+                detail="Could not delete file from storage"
             )
             
             
