@@ -13,7 +13,7 @@ class StorageService:
             's3',
             endpoint_url=settings.S3_ENDPOINT_URL,
             aws_access_key_id=settings.S3_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+             aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name='ap-mumbai-1',
             config=Config(signature_version='s3v4')
         )   
@@ -28,24 +28,19 @@ class StorageService:
         
         try:
             
-            file_obj.seek(0,2)
-            file_size = file_obj.tell()
-            file_obj.seek(0)
-            
             await asyncio.to_thread(
-                self.s3_client.put_object,
-                Bucket=self.bucket_name,
-                Key=filename,
-                Body=file_obj,
-                ContentType=mime_type,
-                ContentLength=file_size
+                self.s3_client.upload_fileobj,
+                file_obj,
+                self.bucket_name,
+                filename,
+                ExtraArgs={'ContentType': mime_type}
             )
             
             object_url = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}/{filename}"
             return object_url
         
         except (BotoCoreError, ClientError) as e:
-            print(f"S3 upload error: {str(e)}")
+            
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Could not upload file to storagee"
@@ -59,10 +54,9 @@ class StorageService:
                 Key=filename
             )
         except (BotoCoreError, ClientError) as e:
-            print(f"S3 delete error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not delete file from storage"
+                detail="Could not detail file from storage"
             )
             
             
