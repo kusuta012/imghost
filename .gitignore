@@ -13,3 +13,11 @@ venv/
 
 .DS_Store
 Thumbs.db
+imghost-web/instrumentation-client.ts
+imghost-web/instrumentation.ts
+imghost-web/sentry.edge.config.ts
+imghost-web/sentry.server.config.ts
+
+imghost-web/app/global-error.tsx
+imghost-web/app/api/sentry-example-api/route.ts
+imghost-web/app/sentry-example-page/page.tsx

@@ -1,6 +1,10 @@
 import uuid
 import magic
 import logging
+import tempfile
+import os
+import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Annotated
 from io import BytesIO
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
@@ -25,7 +29,7 @@ MAX_IMAGES_PER_HOUR = 50
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
 
 
-async def validate_file(file: UploadFile) -> tuple[bytes, str]:
+async def validate_file(file: UploadFile) -> str:
     if hasattr(file, 'size') and file.size is not None:
         if file.size > MAX_FILE_SIZE:
             raise HTTPException(
@@ -35,40 +39,14 @@ async def validate_file(file: UploadFile) -> tuple[bytes, str]:
             
     head = await file.read(2048)
     mime_type = magic.Magic(mime=True).from_buffer(head)
+    await file.seek(0)
     
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=415,
             detail=f"File '{file.filename}' has invalid type: {mime_type}. Allowed: JPEG, PNG, WEBP, HEIC"
         )  
-
-    await file.seek(0)
-    
-    file_bytes = await file.read()
-    if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File '{file.filename}' is too large (Max 5MB per file)"
-        )
-    return file_bytes, mime_type
-
-# async def validate_and_read_file(file: UploadFile) -> tuple[bytes, str]:
-#     file_bytes = await file.read()
-    
-#     if len(file_bytes) > MAX_FILE_SIZE:
-#         raise HTTPException(
-#             status_code=413, 
-#             detail=f"File '{file.filename}' is too large (Max 5MB)"
-#         )
-    
-#     mime_type = magic.Magic(mime=True).from_buffer(file_bytes)
-#     if mime_type not in ALLOWED_MIME_TYPES:
-#         raise HTTPException(
-#             status_code=415, 
-#             detail=f"File '{file.filename}' has invalid type: {mime_type}"
-#         )
-        
-#     return file_bytes, mime_type
+    return mime_type
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
@@ -106,48 +84,94 @@ async def upload_image(
         )    
         
     results = []
+    
+    async def process_tmp(image_id: uuid.UUID, tmp_path: str, filename: str, original_mime: str):
+        try:
+            with open(tmp_path, 'rb') as f:
+                file_bytes = f.read()
+            await process_image_and_update_db(image_id, file_bytes, filename)
+        except Exception as e:
+            logger.error(f"Background processing failed for {filename}: {e}", exc_info=True)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.error(f"Failed to delete temp file {tmp_path}: {e}")
 
     for file in files:
+        tmp_path = None
+        new_filename = str(uuid.uuid4())
         try:
-            file_bytes, mime_type = await validate_file(file)
+            mime_type = await validate_file(file)
             
-            new_filename = str(uuid.uuid4())
-            
-            await storage_service.upload_file(BytesIO(file_bytes), new_filename, mime_type)
-
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_path = tmp.name
+                written = 0
+                while True:
+                    chunk = await file.read(8192)
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+                    written += len(chunk)
+                    if written > MAX_FILE_SIZE:
+                        tmp.close()
+                        try:
+                            os.unlink(tmp_path)
+                        except Exception as e:
+                            pass
+                        raise HTTPException(status_code=413, detail=f"File '{file.filename}' is too large (Max 5MB per file)")
+                tmp.flush()
+                
+                
+            with open(tmp_path, 'rb') as fh:
+                await storage_service.upload_file(fh, new_filename, mime_type)
+                
+            file_size = os.path.getsize(tmp_path)
             new_image = Image(
                 filename=new_filename,
                 object_url=f"s3://{new_filename}", 
-                size_bytes=len(file_bytes),
+                size_bytes=file_size,
                 mime_type=mime_type,
                 is_processed=False,
                 ip_address=ip_addr
             )
             db.add(new_image)
-            
             await db.flush()
 
             background_tasks.add_task(
-                process_image_and_update_db, 
+                process_tmp, 
                 new_image.id, 
-                file_bytes, 
-                new_filename
+                tmp_path, 
+                new_filename,
+                mime_type
             )
             
-            results.append({"url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}"})
+            results.append({"url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}", "size": file_size})
             UPLOAD_COUNT.inc()
             logger.info(f"Upload success.", extra={"status": 201, "ip": ip_addr, "img_filename": new_filename})
 
+            tmp_path = None
+
         except HTTPException as e:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
             raise e
         except Exception as e:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
             await db.rollback()
             ERROR_COUNT.inc()
-            logger.error(f"Upload failed for {file.filename}: {e}", extra={"ip": ip_addr})
+            logger.error(f"Upload failed for {file.filename}: {e}", extra={"ip": ip_addr}, exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error during upload")
 
     await db.commit()
     
-    total_uploaded_kb = sum(r.get('size', 0) for r in results) if results else 0
-    logger.info(f"batch upload complete: {len(results)} files, {total_uploaded_kb/1024:.1f}MB toal", extra={"ip": ip_addr})
+    total_uploaded_kb = sum(r.get('size', 0) for r in results) / 1024 if results else 0
+    logger.info(f"batch upload complete: {len(results)} files, {total_uploaded_kb:.1f}MB toal", extra={"ip": ip_addr})
     return results
