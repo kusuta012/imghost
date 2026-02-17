@@ -224,8 +224,8 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 space-y-8">
-      <div className="text-center space-y-2">
+    <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+      <div className="text-center space-y-1">
         <h1 className="text-4xl font-bold tracking-tighter neon-glow">
           IMG<span className="text-accent">HOST</span>
         </h1>
@@ -238,13 +238,13 @@ export default function Home() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-card border border-border rounded-2xl p-8 shadow-neon"
+        className="w-full max-w-4xl bg-card border border-border rounded-2xl p-8 shadow-neon"
       >
         <AnimatePresence mode="wait">
           {results.length === 0 ? (
             <motion.div key="upload" exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <label
-                className={`group relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${isDragging
+                className={`group relative flex flex-col items-center justify-center w-full h-96 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${isDragging
                     ? 'border-accent bg-accent/10'
                     : 'border-zinc-800 hover:border-accent'
                   }`}
@@ -267,7 +267,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-3">
-                    <Upload className="w-8 h-8 text-zinc-600 group-hover:text-accent transition-colors" />
+                    <Upload className="w-16 h-16 text-zinc-600 group-hover:text-accent transition-colors" />
                     <p className="text-zinc-400 text-sm">
                       {isDragging ? 'Drag images here' : 'Drop images or click to browse'}
                     </p>
@@ -351,10 +351,6 @@ export default function Home() {
           )}
         </AnimatePresence>
       </motion.div>
-
-      <footer className="text-[10px] text-zinc-700 uppercase tracking-[0.2em]">
-        SPEEDDD HAWKSSS
-      </footer>
     </main>
   );
 }
