@@ -5,6 +5,8 @@ from sqlalchemy import select, func
 from db.session import AsyncSessionLocal
 from models.image import Image
 from services.storage import storage_service
+from services.cloudflare import purge_urls
+from core.config import settings
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("cleanup")
@@ -24,6 +26,7 @@ async def soft_delete_expired_imges():
         
         deleted_count = 0
         failed_count = 0
+        to_purge = []
         
         for img in expired:
             try:
@@ -31,6 +34,8 @@ async def soft_delete_expired_imges():
                 await storage_service.delete_file(img.filename)
                 img.deleted_at = datetime.now(timezone.utc)
                 img.object_url = "DELETED"
+                public_url = f"{settings.PUBLIC_BASE_URL}/i/{img.filename}"
+                to_purge.append(public_url)
                 deleted_count += 1
                 logger.info(f"Soft delete: {img.filename} | Uploaded: {img.uploaded_at} | (IP: {img.ip_address})")
             except Exception as e:
@@ -39,6 +44,13 @@ async def soft_delete_expired_imges():
                 
         await session.commit()
         logger.info(f"Completed cleanup: {deleted_count} deleted, {failed_count} failed")
+        
+        if to_purge:
+            try:
+                purge_results = await purge_urls(to_purge)
+                logger.info("CLoudflare purge results: %s", purge_results)
+            except Exception as e:
+                logger.error("Cloudflare purge call failed: %s", e, exc_info=True)
         
 async def hard_delete_old_metadata():
     retention_days = 90

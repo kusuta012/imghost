@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_STORAGE_URL: str = "memory://"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 60
     SENTRY_DSN: str | None = None
+    CF_API_TOKEN: str | None = None
+    CF_ZONE_ID: str | None = None
     model_config = SettingsConfigDict(env_file=".env")
 
 

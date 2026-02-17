@@ -6,6 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from db.session import limiter, custom_key_func
 from api.routes import upload, health
 from core.monitoring import PrometheusMiddleware
+from services.cloudflare import close_client
 import logging, sys, json, os
 from datetime import datetime, timezone
 
@@ -79,5 +80,8 @@ app.include_router(health.router)
 async def root():
     return {"message": "Image Host API Running", "documentation": "/docs"}
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_client()
 
 
