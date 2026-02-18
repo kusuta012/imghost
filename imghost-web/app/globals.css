@@ -5,7 +5,7 @@
   --color-accent: #ff0000;
   --color-card: #0a0a0a;
   --color-border: #1a1a1a;
-  --shadow-neon: 0 0 30px -5px rgba(255, 0, 0, 1);
+  --shadow-neon: 0 0 18px -5px rgba(255, 0, 0, 0.35);
 }
 
 :root {
@@ -21,4 +21,71 @@ body {
 
 .neon-glow {
   text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #ff4444;
+  border-radius: 50%;
+  border: none;
+  margin-top: -4px;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+  transition: transform 0.15s ease;
+  cursor: grab;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #ff4444;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.8);
+}
+
+input[type="range"]::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease;
 }

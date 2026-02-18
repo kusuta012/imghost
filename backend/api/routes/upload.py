@@ -3,15 +3,11 @@ import magic
 import logging
 import tempfile
 import os
-import datetime
-from datetime import datetime, timezone, timedelta
 from typing import List, Annotated
-from io import BytesIO
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone, timedelta
-from slowapi.util import get_ipaddr
 from db.session import limiter, get_db, custom_key_func
 from core.config import settings
 from models.image import Image
@@ -54,9 +50,31 @@ async def upload_image(
     files: Annotated[List[UploadFile], File(description="images to upload")],
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-    request: Request
+    request: Request,
+    expires_minutes: Annotated[str | None, Form(description="Expiry in minutes")] = None
 ):
     ip_addr = custom_key_func(request)
+
+    
+    if expires_minutes is None:
+        expires_minutes_int = 1440 
+    else:
+        try:
+            expires_minutes_int = int(expires_minutes)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="expires_minutes must be an integer"
+            )
+
+        if expires_minutes_int < 5 or expires_minutes_int > 24 * 60:
+            raise HTTPException(
+                status_code=400,
+                detail="Expiry must be between 5 minutes and 1440 minutes (24 hours)"
+            )
+
+    computed_expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes_int)
+    
     
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -127,14 +145,18 @@ async def upload_image(
                 await storage_service.upload_file(fh, new_filename, mime_type)
                 
             file_size = os.path.getsize(tmp_path)
+            
             new_image = Image(
                 filename=new_filename,
                 object_url=f"s3://{new_filename}", 
                 size_bytes=file_size,
                 mime_type=mime_type,
                 is_processed=False,
-                ip_address=ip_addr
+                ip_address=ip_addr,
+                expires_at=computed_expires_at
             )
+
+                
             db.add(new_image)
             await db.flush()
 
@@ -146,7 +168,17 @@ async def upload_image(
                 mime_type
             )
             
-            results.append({"url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}", "size": file_size})
+            resp_item = {
+                "url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}",
+                "size": file_size 
+            }
+            
+            if computed_expires_at is not None:
+                resp_item["expires_at"] = computed_expires_at.isoformat()
+                
+            results.append(resp_item)
+            
+            # results.append({"url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}", "size": file_size})
             UPLOAD_COUNT.inc()
             logger.info(f"Upload success.", extra={"status": 201, "ip": ip_addr, "img_filename": new_filename})
 
@@ -172,6 +204,6 @@ async def upload_image(
 
     await db.commit()
     
-    total_uploaded_kb = sum(r.get('size', 0) for r in results) / 1024 if results else 0
-    logger.info(f"batch upload complete: {len(results)} files, {total_uploaded_kb:.1f}MB toal", extra={"ip": ip_addr})
+    total_uploaded_mb = sum(r.get('size', 0) for r in results) / 1024 * 1024 if results else 0
+    logger.info(f"batch upload complete: {len(results)} files, {total_uploaded_mb:.1f}MB toal", extra={"ip": ip_addr})
     return results
