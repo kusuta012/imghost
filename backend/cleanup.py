@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from db.session import AsyncSessionLocal
 from models.image import Image
 from services.storage import storage_service
@@ -23,10 +23,12 @@ async def soft_delete_expired_imges():
     
     
     async with AsyncSessionLocal() as session:
+        semaphore = asyncio.Semaphore(S3_CONC)
         while True:
             stmt = (
                 select(Image)
                 .where(Image.expires_at < now, Image.deleted_at.is_(None))
+                .order_by(Image.expires_at)
                 .limit(BATCH_SIZE)
             )
             result = await session.execute(stmt)
@@ -34,10 +36,7 @@ async def soft_delete_expired_imges():
         
             if not batch:
                 break
-        
-        
-            semaphore = asyncio.Semaphore(S3_CONC)
-            
+
             async def delete_one(img: Image):
                 nonlocal deleted_total, failed_total   
                 try:
@@ -77,10 +76,19 @@ async def hard_delete_old_metadata():
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
     
     async with AsyncSessionLocal() as session:
-        stmt = select(Image).where(Image.deleted_at < cutoff_date)
-        result = await session.execute(stmt)
+        count = await session.scalar(
+            select(func.count(Image.id)).where(Image.deleted_at < cutoff_date)
+        )
+        
+        if not count:
+            logger.info("No old metadata records found for hard deletion")
+            return
+        
+        await session.execute(
+            delete(Image).where(Image.deleted_at < cutoff_date)
+        )
         await session.commit()
-        logger.info(f"Hard deleted {result.rowcount or 0 } old metadata rows")
+        logger.info(f"Hard deleted {count} old metadata rows")
         
 async def print_stats():
     now = datetime.now(timezone.utc)
