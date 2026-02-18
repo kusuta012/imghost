@@ -100,7 +100,7 @@ async def print_stats():
         
         expiring = await session.scalar(
             select(func.count(Image.id)).where(
-                Image.expires_at < next_hour
+                Image.expires_at < next_hour,
                 Image.expires_at > now,
                 Image.deleted_at.is_(None),
                 
