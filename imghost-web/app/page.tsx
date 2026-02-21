@@ -306,7 +306,7 @@ export default function Home() {
         </h1>
          <ThemeSwitcher />
         </div>
-        <div className="flex items-center space-x-2 text-[10px] uppercase tracking-widest text-zinc-500 mt-2 ml-[-36px]">
+        <div className="flex items-center space-x-2 text-xs uppercase tracking-widest text-[var(--bg-accent)] opacity-70 mt-2 ml-[-36px]">
           <Globe className={`w-3 h-3 ${health === "ok" ? "text-green-500" : "text-accent"}`} />
           <span>System {health === "ok" ? "Operational" : "Degraded"}</span>
         </div>
@@ -343,11 +343,11 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-3">
-                    <Upload className="w-16 h-16 text-zinc-600 group-hover:text-accent transition-colors" />
-                    <p className="text-zinc-400 text-sm">
+                    <Upload className="w-16 h-16 text-[var(--bg-accent)] opacity-50 group-hover:text-accent group-hover:opacity-100 transition-colors" />
+                    <p className="text-[var(--bg-accent)] opacity-50 text-sm">
                       {isDragging ? "Drag images here" : "Drop images or click to browse"}
                     </p>
-                    <p className="text-zinc-600 text-xs">Max 15MB</p>
+                    <p className="text-[var(--bg-accent)] opacity-50 text-xs">Max 15MB</p>
                   </div>
                 )}
                 <input
@@ -474,7 +474,7 @@ export default function Home() {
                 <button
                   disabled={files.length === 0 || uploading || compressing}
                   onClick={onUpload}
-                  className="flex-1 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-zinc-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center shadow-[var(--shadow-neon)]"
+                  className="flex-1 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-card)] text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center shadow-[var(--shadow-neon)]"
                 >
                   {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>UPLOAD</span>}
                 </button>
@@ -540,7 +540,7 @@ export default function Home() {
 
               <div className="space-y-4">
                 <div className="bg-accent/5 p-3 rounded-lg border border-accent/20 text-center">
-                  <p className="text-[9px] text-zinc-500">Links will expire in {formatExpiry(expiresMinutes)}</p>
+                  <p className="text-xs text-[var(--bg-accent)]">Links will expire in {formatExpiry(expiresMinutes)}</p>
                 </div>
 
                 <button
@@ -549,7 +549,7 @@ export default function Home() {
                     setFiles([]);
                     setProgress(0);
                   }}
-                  className="w-full bg-accent hover:brightness-110 border border-border text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-[var(--shadow-neon)]"
+                  className="w-full bg-accent hover:brightness-80 border border-border text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-[var(--shadow-neon)]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>UPLOAD MORE</span>
