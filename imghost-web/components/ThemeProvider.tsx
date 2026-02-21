@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'theme-dark' | 'theme-matte' | 'theme-catppuccin' | 'theme-nordic';
+type Theme = 'theme-dark' | 'theme-catppuccin' | 'theme-macchiato' | 'theme-nordic' | 'theme-gruvbox' | 'theme-dracula' | 'theme-tokyo';
 
 interface ThemeContextType {
     theme: Theme;

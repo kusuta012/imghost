@@ -7,8 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const themes = [
     { id: 'theme-dark', name:'Neon Red', color: '#ff0000'},
-    { id: 'theme-matte', name:'Matte', color: '#9ca3af'},
-    { id: 'theme-catppuccin', name:'Cappuccin', color: '#cba6f7'},
+    { id: 'theme-catppuccin', name:'Catppuccin', color: '#cba6f7'},
     { id: 'theme-macchiato', name:'Macchiato', color: '#ed8796'},
     { id: 'theme-nordic', name:'Nordic', color: '#88c0d0'},
     { id: 'theme-gruvbox', name:'Gruvbox', color: '#fe8019'},
