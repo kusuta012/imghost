@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Upload, Copy, Check, AlertCircle, Loader2, Globe, Plus, Timer, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -298,11 +299,14 @@ export default function Home() {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-      <div className="text-center space-y-1">
+      <div className="flex flex-col items-center">
+        <div className="flex items-center gap-3"> 
         <h1 className="text-4xl font-bold tracking-tighter neon-glow">
           IMG<span className="text-accent">HOST</span>
         </h1>
-        <div className="flex items-center justify-center space-x-2 text-[10px] uppercase tracking-widest text-zinc-500">
+         <ThemeSwitcher />
+        </div>
+        <div className="flex items-center space-x-2 text-[10px] uppercase tracking-widest text-zinc-500 mt-2 ml-[-36px]">
           <Globe className={`w-3 h-3 ${health === "ok" ? "text-green-500" : "text-accent"}`} />
           <span>System {health === "ok" ? "Operational" : "Degraded"}</span>
         </div>
@@ -311,14 +315,14 @@ export default function Home() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl bg-card border border-border rounded-2xl p-8 shadow-neon"
+        className="w-full max-w-4xl bg-card border border-border rounded-2xl p-8 shadow-[var(--shadow-neon)]"
       >
         <AnimatePresence mode="wait">
           {results.length === 0 ? (
             <motion.div key="upload" exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <label
                 className={`group relative flex flex-col items-center justify-center w-full h-96 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-                  isDragging ? "border-accent bg-accent/10" : "border-zinc-800 hover:border-accent"
+                  isDragging ? "border-accent bg-accent/10" : "border-border hover:border-accent"
                 }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -362,7 +366,7 @@ export default function Home() {
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] uppercase tracking-widest font-bold transition-all border whitespace-nowrap ${
                     showExpiry
                       ? "border-accent text-accent bg-accent/10"
-                      : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      : "border-border text-zinc-400 hover:opacity-80 hover:text-zinc-300"
                   }`}
                 >
                   <Timer className="w-3.5 h-3.5" />
@@ -378,7 +382,7 @@ export default function Home() {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -4 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute bottom-full left-0 mb-2 z-20 w-64 bg-zinc-950 border border-zinc-800 rounded-xl p-4 shadow-2xl space-y-4"
+                        className="absolute bottom-full left-0 mb-2 z-20 w-64 bg-zinc-950 border border-border rounded-xl p-4 shadow-2xl space-y-4"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
@@ -397,7 +401,7 @@ export default function Home() {
                               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all border relative overflow-hidden ${
                                 expiresMinutes === value && customInput === ""
                                   ? "bg-accent text-white border-accent"
-                                  : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-600"
+                                  : "bg-zinc-900 text-zinc-400 border-border hover:opacity-80"
                               }`}
                             >
                               {label}
@@ -406,15 +410,7 @@ export default function Home() {
                         </div>
 
                         <div className="space-y-2">
-                          <div className="relative h-[3px]">
-                            <div className="absolute inset-0 bg-zinc-800 rounded-full" />
-                            <div
-                              className="absolute left-0 top-0 h-full rounded-full transition-all duration-150 z-[1]"
-                              style={{
-                                width: `${((expiresMinutes - 5) / (1440 - 5)) * 100}%`,
-                                backgroundColor: "#ff4444",
-                              }}
-                            />
+                          <div className="relative w-full">
                             <input
                               type="range"
                               min="5"
@@ -422,7 +418,14 @@ export default function Home() {
                               step="1"
                               value={expiresMinutes}
                               onChange={handleSliderChange}
-                              className="absolute inset-0 w-full appearance-none bg-transparent cursor-pointer z-10"
+                              className="w-full appearance-none cursor-pointer h-[6px] rounded-full"
+                              style={{
+                                background: `linear-gradient(to right,
+                                  var(--color-accent) 0%,
+                                  var(--color-accent) ${((expiresMinutes - 5) / (1440 - 5)) * 100}%,
+                                  var(--color-border) ${((expiresMinutes - 5) / (1440 - 5)) * 100}%,
+                                  var(--color-border) 100%)`
+                              }}
                             />
                           </div>
 
@@ -448,7 +451,7 @@ export default function Home() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
+                        <div className="flex items-center gap-2 pt-1 border-t border-border">
                           <span className="text-[10px] text-zinc-600">Custom</span>
                           <input
                             type="number"
@@ -471,7 +474,7 @@ export default function Home() {
                 <button
                   disabled={files.length === 0 || uploading || compressing}
                   onClick={onUpload}
-                  className="flex-1 bg-accent hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center shadow-lg"
+                  className="flex-1 bg-accent hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-zinc-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center shadow-[var(--shadow-neon)]"
                 >
                   {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>UPLOAD</span>}
                 </button>
@@ -506,14 +509,14 @@ export default function Home() {
               <div className="space-y-4 max-h-100 overflow-y-auto pr-2">
                 {results.map((res, index) => (
                   <div key={index} className="space-y-2 p-3 border border-border rounded-xl bg-black/50">
-                    <div className="relative aspect-video rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 mb-2">
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border bg-zinc-900 mb-2">
                       <img src={res.url} alt={`Upload ${index}`} className="object-contain w-full h-full" />
                     </div>
                     <div className="flex items-center space-x-2">
                       <input
                         readOnly
                         value={res.url}
-                        className="flex-1 bg-black border border-zinc-800 rounded-lg px-3 py-2 text-[10px] text-zinc-400 focus:outline-none"
+                        className="flex-1 bg-black border border-border rounded-lg px-3 py-2 text-[10px] text-zinc-400 focus:outline-none"
                       />
                       <button
                         onClick={() => copyToClipboard(res.url, index)}
@@ -546,7 +549,7 @@ export default function Home() {
                     setFiles([]);
                     setProgress(0);
                   }}
-                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2"
+                  className="w-full bg-accent hover:brightness-110 border border-border text-white py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-[var(--shadow-neon)]"
                 >
                   <Plus className="w-4 h-4" />
                   <span>UPLOAD MORE</span>
