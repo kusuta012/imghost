@@ -65,7 +65,7 @@ export default function TermsPage() {
             <section className="mt-4">
                 <h2 className="text-xl font-semibold">5. Your Rights</h2>
                 <p className="mt-2 text-sm text-zinc-300">
-                 This is an anonymous service. If you need a file removed immediately, contact us with the image link at <a className="text-accent" href="mailto:abuse@speedhawks.online">abuse@speedhawks.online</a>
+                 This is an anonymous service. If you need a file removed immediately, contact us with the image link at <a className="text-accent" href="mailto:abuse@imghost.app">abuse@imghost.app</a>
                 </p>
             </section>
 
@@ -91,7 +91,7 @@ export default function TermsPage() {
 
             <section className="mt-4">
                 <h2 className="text-xl font-semibold">10. Contact</h2>
-                <p className="mt-2 text-sm text-zinc-300">For privacy questions: <a className="text-accent" href="mailto:hi@speedhawks.online">hi@speedhawks.online</a></p>
+                <p className="mt-2 text-sm text-zinc-300">For privacy questions: <a className="text-accent" href="mailto:hi@imghost.app">hi@imghost.app</a></p>
             </section>
             </div>
 

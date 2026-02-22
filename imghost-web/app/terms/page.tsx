@@ -84,7 +84,7 @@ export default function TermsPage() {
                 <section className="mt-4">
                     <h2 className="text-xl font-semibold">7. Reporting Abuse</h2>
                     <p className="mt-2 text-sm text-zinc-300">
-                        Report illegal or abusive content to: <a className="text-accent" href="mailto:abuse@speedhawks.online">abuse@speedhawks.online</a>
+                        Report illegal or abusive content to: <a className="text-accent" href="mailto:abuse@imghost.app">abuse@imghost.app</a>
                     </p>
                 </section>
 
@@ -95,7 +95,7 @@ export default function TermsPage() {
 
                 <section className="mt-4">
                     <h2 className="text-xl font-semibold">9. Contact</h2>
-                    <p className="mt-2 text-sm text-zinc-300">Email: <a className="text-accent" href="mailto:hi@speedhawks.online">hi@speedhawks.online</a></p>
+                    <p className="mt-2 text-sm text-zinc-300">Email: <a className="text-accent" href="mailto:hi@imghost.app">hi@imghost.app</a></p>
                 </section>
             </div>
 

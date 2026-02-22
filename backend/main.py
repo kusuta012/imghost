@@ -59,7 +59,7 @@ app = FastAPI(
 app.add_middleware(PrometheusMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://imghost.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,7 +78,7 @@ app.include_router(health.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Image Host API Running", "documentation": "/docs"}
+    return {"message": "Image Host API Running"}
 
 @app.on_event("shutdown")
 async def shutdown_event():
