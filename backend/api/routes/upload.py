@@ -27,12 +27,6 @@ ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "im
 
 
 async def validate_file(file: UploadFile) -> str:
-    if hasattr(file, 'size') and file.size is not None:
-        if file.size > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=413, 
-                detail=f"File '{file.filename}' is too large (Max 5MB per file)"
-            )
             
     head = await file.read(2048)
     mime_type = magic.Magic(mime=True).from_buffer(head)
@@ -135,7 +129,7 @@ async def upload_image(
                         break
                     tmp.write(chunk)
                     written += len(chunk)
-                    if written > MAX_FILE_SIZE:
+                    if written > per_file_limit:
                         tmp.close()
                         try:
                             os.unlink(tmp_path)

@@ -24,6 +24,11 @@ interface UploadResult {
 }
 
 async function compressImage(file: File): Promise<File> {
+
+  if (file.type === "image/gif") {
+    return file;
+  }
+  
   return new Promise((resolve) => {
     const reader = new FileReader();
 
