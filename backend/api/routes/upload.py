@@ -18,10 +18,10 @@ from core.monitoring import UPLOAD_COUNT, ERROR_COUNT
 router = APIRouter()
 logger = logging.getLogger("imghost")
 
-MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_FILE_SIZE = 15 * 1024 * 1024
 MAX_GIF_SIZE = 25 * 1024 * 1024
-MAX_TOTAL_SIZE = 15 * 1024 * 1024
-MAX_FILES = 10
+MAX_TOTAL_SIZE = 50 * 1024 * 1024
+MAX_FILES = 15
 MAX_IMAGES_PER_HOUR = 50  
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"]
 
@@ -82,7 +82,7 @@ async def upload_image(
     if total_size > MAX_TOTAL_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"Total upload size ({total_size / (1024 * 1024):.2f} MB) exceeds the limit of 15MB"
+            detail=f"Total upload size ({total_size / (1024 * 1024):.2f} MB) exceeds the limit of 50MB"
         )
     
     one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -135,7 +135,7 @@ async def upload_image(
                             os.unlink(tmp_path)
                         except Exception as e:
                             pass
-                        raise HTTPException(status_code=413, detail=f"File '{file.filename}' is too large (Max 5MB per file and Max 25MB for GIF)")
+                        raise HTTPException(status_code=413, detail=f"File '{file.filename}' is too large (Max 15MB per file and Max 50MB for GIF)")
                 tmp.flush()
                 
                 

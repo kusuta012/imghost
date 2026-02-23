@@ -28,7 +28,7 @@ async function compressImage(file: File): Promise<File> {
   if (file.type === "image/gif") {
     return file;
   }
-  
+
   return new Promise((resolve) => {
     const reader = new FileReader();
 
@@ -364,7 +364,7 @@ export default function Home() {
                     <p className="text-[var(--bg-accent)] opacity-50 text-sm">
                       {isDragging ? "Drag images here" : "Drop images or click to browse"}
                     </p>
-                    <p className="text-[var(--bg-accent)] opacity-50 text-xs">Max 15MB</p>
+                    <p className="text-[var(--bg-accent)] opacity-50 text-xs">Max 50MB</p>
                   </div>
                 )}
                 <input
