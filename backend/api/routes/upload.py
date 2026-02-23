@@ -19,10 +19,11 @@ router = APIRouter()
 logger = logging.getLogger("imghost")
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_GIF_SIZE = 25 * 1024 * 1024
 MAX_TOTAL_SIZE = 15 * 1024 * 1024
 MAX_FILES = 10
 MAX_IMAGES_PER_HOUR = 50  
-ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]
+ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"]
 
 
 async def validate_file(file: UploadFile) -> str:
@@ -40,9 +41,10 @@ async def validate_file(file: UploadFile) -> str:
     if mime_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=415,
-            detail=f"File '{file.filename}' has invalid type: {mime_type}. Allowed: JPEG, PNG, WEBP, HEIC"
+            detail=f"File '{file.filename}' has invalid type: {mime_type}. Allowed: JPEG, PNG, WEBP, HEIC/HEIF, GIF"
         )  
     return mime_type
+
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
@@ -107,7 +109,7 @@ async def upload_image(
         try:
             with open(tmp_path, 'rb') as f:
                 file_bytes = f.read()
-            await process_image_and_update_db(image_id, file_bytes, filename)
+            await process_image_and_update_db(image_id, file_bytes, filename, original_mime)
         except Exception as e:
             logger.error(f"Background processing failed for {filename}: {e}", exc_info=True)
         finally:
@@ -121,6 +123,8 @@ async def upload_image(
         new_filename = str(uuid.uuid4())
         try:
             mime_type = await validate_file(file)
+            
+            per_file_limit = MAX_GIF_SIZE if mime_type == "image/gif" else MAX_FILE_SIZE
             
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 tmp_path = tmp.name
@@ -137,7 +141,7 @@ async def upload_image(
                             os.unlink(tmp_path)
                         except Exception as e:
                             pass
-                        raise HTTPException(status_code=413, detail=f"File '{file.filename}' is too large (Max 5MB per file)")
+                        raise HTTPException(status_code=413, detail=f"File '{file.filename}' is too large (Max 5MB per file and Max 25MB for GIF)")
                 tmp.flush()
                 
                 
@@ -170,7 +174,8 @@ async def upload_image(
             
             resp_item = {
                 "url": f"{settings.PUBLIC_BASE_URL}/i/{new_filename}",
-                "size": file_size 
+                "size": file_size,
+                "mime_type": mime_type 
             }
             
             if computed_expires_at is not None:

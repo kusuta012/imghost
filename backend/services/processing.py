@@ -8,6 +8,8 @@ from services.storage import storage_service
 from db.session import AsyncSessionLocal
 from models.image import Image
 from sqlalchemy import select
+from services.cloudflare import purge_urls
+from core.config import settings
 
 logger = logging.getLogger("imghost.background")
 MAX_DIMENSION = 2500
@@ -63,7 +65,22 @@ def strip_exif_and_process(file_bytes: bytes) -> Tuple[bytes, str]:
         return file_bytes, "image/jpeg"
     
 
-async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes, original_filename: str):
+async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes, original_filename: str, original_mime: str):
+    if original_mime == "image/gif":
+        logger.info(f"skipping process for GIF {image_id}")
+        try:
+            async with AsyncSessionLocal() as session:
+                stmt = select(Image).filter(Image.id == image_id)
+                result = await session.execute(stmt)
+                image = result.scalars().first()
+                if image:
+                    image.is_processed = True
+                    await session.commit()
+                    logger.info(f"Image {image_id} marked procesed (GIF)")
+        except Exception as e:
+            logger.exception(f"Failed gif process mark for {image_id}: {e}")
+    
+    
     processed_bytes, new_mime_type = strip_exif_and_process(original_bytes)
     
     size_reduction = len(original_bytes) - len(processed_bytes)
@@ -88,6 +105,13 @@ async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes
             filename=original_filename,
             mime_type=new_mime_type
         )
+        
+        try:
+            public_url = f"{settings.PUBLIC_BASE_URL}/i/{original_filename}"
+            purge_result = await purge_urls([public_url])
+            logger.info(f"Purged CDN cache for {original_filename}: {purge_result}")
+        except Exception as e:
+            logger.exception(f"Failed to purge CDN cache for {original_filename}: {e}")
         
         async with AsyncSessionLocal() as session:
             stmt = select(Image).filter(Image.id == image_id)

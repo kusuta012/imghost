@@ -20,6 +20,7 @@ interface UploadResult {
   url: string;
   size?: number;
   expires_at?: string;
+  mime_type?: string;
 }
 
 async function compressImage(file: File): Promise<File> {
@@ -111,7 +112,7 @@ export default function Home() {
       .then((res) => (res.ok ? setHealth("ok") : setHealth("error")))
       .catch(() => setHealth("error"));
   }, []);
-
+  
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -146,9 +147,20 @@ export default function Home() {
   };
 
   const processFiles = async (fileList: File[]) => {
-    const oversized = fileList.filter((f) => f.size > 15 * 1024 * 1024);
+    const perFileLimitNonGif = 15 * 1024 * 1024;
+    const perFileLimitGif = 25 * 1024 * 1024;
+
+    const oversized = fileList.filter((f) =>
+      f.type === "image/gif" ? f.size > perFileLimitGif : f.size > perFileLimitNonGif
+    );
+
     if (oversized.length > 0) {
-      setError(`${oversized.length} files exceed 15MB limit`);
+      const gifTooLarge = oversized.some((f) => f.type === "image/gif");
+      if (gifTooLarge) {
+        setError(`One or more GIFs exceed ${perFileLimitGif / (1024 * 1024)}MB limit`);
+      } else {
+        setError(`${oversized.length} files exceed ${perFileLimitNonGif / (1024 * 1024)}MB limit`);
+      }
       return;
     }
 
@@ -510,7 +522,13 @@ export default function Home() {
                 {results.map((res, index) => (
                   <div key={index} className="space-y-2 p-3 border border-border rounded-xl bg-black/50">
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-border bg-zinc-900 mb-2">
-                      <img src={res.url} alt={`Upload ${index}`} className="object-contain w-full h-full" />
+                      {res.mime_type === "image/heic" || res.mime_type === "image/heif" ? (
+                        <div className="flex items-center justify-center w-full h-full p-4 text-xs text-zinc-400">
+                          Sorry, previews aren't supported for HEIC/HEIF images - visit the link after a few seconds and you should be file.
+                        </div>
+                      ) : (
+                        <img src={res.url} alt={`Upload ${index}`} className="object-contain w-full h-full" />
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <input
