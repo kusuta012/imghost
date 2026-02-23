@@ -79,6 +79,7 @@ async def process_image_and_update_db(image_id: uuid.UUID, original_bytes: bytes
                     logger.info(f"Image {image_id} marked procesed (GIF)")
         except Exception as e:
             logger.exception(f"Failed gif process mark for {image_id}: {e}")
+        return
     
     
     processed_bytes, new_mime_type = strip_exif_and_process(original_bytes)
