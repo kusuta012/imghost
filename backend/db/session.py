@@ -16,7 +16,12 @@ def custom_key_func(request) -> str:
     
     return get_ipaddr(request)
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 
 AsyncSessionLocal = async_sessionmaker (
     bind=engine,
@@ -35,5 +40,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+            
+    
             
     
